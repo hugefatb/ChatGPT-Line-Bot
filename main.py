@@ -19,6 +19,8 @@ from src.service.youtube import Youtube, YoutubeTranscriptReader
 from src.service.website import Website, WebsiteReader
 from src.mongodb import mongodb
 
+os.system('pip install -r requirements.txt')
+
 load_dotenv('.env')
 
 app = Flask(__name__)
