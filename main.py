@@ -3,9 +3,7 @@ from flask import Flask, request, abort
 from linebot import (
     LineBotApi, WebhookHandler
 )
-from linebot.exceptions import (
-    InvalidSignatureError
-)
+from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
     MessageEvent, TextMessage, TextSendMessage, ImageSendMessage, AudioMessage
 )
@@ -30,7 +28,6 @@ storage = None
 youtube = Youtube(step=4)
 website = Website()
 
-
 memory = Memory(system_message=os.getenv('SYSTEM_MESSAGE'), memory_message_count=2)
 model_management = {}
 api_keys = {}
@@ -53,11 +50,18 @@ def callback():
 def handle_text_message(event):
     user_id = event.source.user_id
     text = event.message.text.strip()
+    
+    # 新增判斷，僅處理以 $ 開頭的訊息
+    if not text.startswith('$'):
+        return  # 如果訊息不是以 $ 開頭，直接返回，不進行後續處理
+    
+    # 去掉開頭的 $ 字符
+    text = text[1:].strip()
     logger.info(f'{user_id}: {text}')
 
     try:
         if text.startswith('/註冊'):
-            api_key = text[3:].strip()
+            api_key = text[2:].strip()
             model = OpenAIModel(api_key=api_key)
             is_successful, _, _ = model.check_token_valid()
             if not is_successful:
@@ -69,10 +73,10 @@ def handle_text_message(event):
             msg = TextSendMessage(text='Token 有效，註冊成功')
 
         elif text.startswith('/指令說明'):
-            msg = TextSendMessage(text="指令：\n/註冊 + API Token\n👉 API Token 請先到 https://platform.openai.com/ 註冊登入後取得\n\n/系統訊息 + Prompt\n👉 Prompt 可以命令機器人扮演某個角色，例如：請你扮演擅長做總結的人\n\n/清除\n👉 當前每一次都會紀錄最後兩筆歷史紀錄，這個指令能夠清除歷史訊息\n\n/圖像 + Prompt\n👉 會調用 DALL∙E 2 Model，以文字生成圖像\n\n語音輸入\n👉 會調用 Whisper 模型，先將語音轉換成文字，再調用 ChatGPT 以文字回覆\n\n其他文字輸入\n👉 調用 ChatGPT 以文字回覆")
+            msg = TextSendMessage(text="指令：\n$註冊 + API Token\n👉 API Token 請先到 https://platform.openai.com/ 註冊登入後取得\n\n$系統訊息 + Prompt\n👉 Prompt 可以命令機器人扮演某個角色，例如：請你扮演擅長做總結的人\n\n$清除\n👉 當前每一次都會紀錄最後兩筆歷史紀錄，這個指令能夠清除歷史訊息\n\n$圖像 + Prompt\n👉 會調用 DALL∙E 2 Model，以文字生成圖像\n\n語音輸入\n👉 會調用 Whisper 模型，先將語音轉換成文字，再調用 ChatGPT 以文字回覆\n\n其他文字輸入\n👉 調用 ChatGPT 以文字回覆")
 
         elif text.startswith('/系統訊息'):
-            memory.change_system_message(user_id, text[5:].strip())
+            memory.change_system_message(user_id, text[4:].strip())
             msg = TextSendMessage(text='輸入成功')
 
         elif text.startswith('/清除'):
@@ -80,7 +84,7 @@ def handle_text_message(event):
             msg = TextSendMessage(text='歷史訊息清除成功')
 
         elif text.startswith('/圖像'):
-            prompt = text[3:].strip()
+            prompt = text[2:].strip()
             memory.append(user_id, 'user', prompt)
             is_successful, response, error_message = model_management[user_id].image_generations(prompt)
             if not is_successful:
@@ -125,9 +129,9 @@ def handle_text_message(event):
                 msg = TextSendMessage(text=response)
             memory.append(user_id, role, response)
     except ValueError:
-        msg = TextSendMessage(text='Token 無效，請重新註冊，格式為 /註冊 sk-xxxxx')
+        msg = TextSendMessage(text='Token 無效，請重新註冊，格式為 $註冊 sk-xxxxx')
     except KeyError:
-        msg = TextSendMessage(text='請先註冊 Token，格式為 /註冊 sk-xxxxx')
+        msg = TextSendMessage(text='請先註冊 Token，格式為 $註冊 sk-xxxxx')
     except Exception as e:
         memory.remove(user_id)
         if str(e).startswith('Incorrect API key provided'):
@@ -163,9 +167,9 @@ def handle_audio_message(event):
             memory.append(user_id, role, response)
             msg = TextSendMessage(text=response)
     except ValueError:
-        msg = TextSendMessage(text='請先註冊你的 API Token，格式為 /註冊 [API TOKEN]')
+        msg = TextSendMessage(text='請先註冊你的 API Token，格式為 $註冊 [API TOKEN]')
     except KeyError:
-        msg = TextSendMessage(text='請先註冊 Token，格式為 /註冊 sk-xxxxx')
+        msg = TextSendMessage(text='請先註冊 Token，格式為 $註冊 sk-xxxxx')
     except Exception as e:
         memory.remove(user_id)
         if str(e).startswith('Incorrect API key provided'):
